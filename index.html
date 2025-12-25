@@ -4,8 +4,6 @@
   <meta charset="UTF-8">
   <title>DAMAC Project</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
-  <link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine/dist/leaflet-routing-machine.css"/>
   <style>
     html, body {
       margin: 0;
@@ -19,7 +17,7 @@
     }
     iframe {
       width: 100%;
-      height: calc(50vh);
+      height: calc(100% - 50px);
       border: 0;
     }
     .login-container, .no-token {
@@ -69,21 +67,21 @@
       background: linear-gradient(to bottom, red, white, green);
       color: black;
     }
-    #routeInputs {
-      padding: 10px;
-      max-width: 400px;
-      margin: 10px auto;
-      text-align: center;
+    .controls {
+      margin: 10px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 5px;
     }
-    #routeInputs input, #routeInputs button {
-      width: 100%;
+    .controls input, .controls button {
       padding: 8px;
-      margin: 5px 0;
-      font-size: 16px;
+      width: 250px;
+      font-size: 14px;
     }
-    #customerMap {
-      width: 100%;
-      height: 50vh;
+    #distanceOutput {
+      margin-top: 5px;
+      font-weight: bold;
     }
   </style>
 </head>
@@ -100,98 +98,83 @@
   <p id="loginError"></p>
 </div>
 
-<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
-<script src="https://unpkg.com/leaflet-routing-machine/dist/leaflet-routing-machine.js"></script>
+<div id="mapSection" style="display:none;">
+  <div class="controls">
+    <input type="number" id="userLat" placeholder="Your Latitude">
+    <input type="number" id="userLon" placeholder="Your Longitude">
+    <button onclick="calculateDistance()">Check Distance to Truck</button>
+    <div id="distanceOutput"></div>
+  </div>
+  <iframe id="mapFrame"></iframe>
+</div>
+
 <script>
-  function login() {
-    const user = document.getElementById("username").value;
-    const pass = document.getElementById("password").value;
+function login() {
+  const user = document.getElementById("username").value;
+  const pass = document.getElementById("password").value;
 
-    // Set your login credentials
-    const correctUser = "damac";
-    const correctPass = "12345";
+  // Your login credentials
+  const correctUser = "damac";
+  const correctPass = "12345";
 
-    if(user === correctUser && pass === correctPass){
-      document.getElementById("loginDiv").style.display = "none";
+  if(user === correctUser && pass === correctPass){
+    document.getElementById("loginDiv").style.display = "none";
 
-      const params = new URLSearchParams(window.location.search);
-      const token = params.get("t");
+    const params = new URLSearchParams(window.location.search);
+    const token = params.get("t"); // Token from URL
 
-      if(!token){
-        // Show fallback if token missing
-        const noTokenDiv = document.createElement("div");
-        noTokenDiv.className = "no-token";
-        noTokenDiv.innerHTML = `
-          <img src="https://github.com/RMB-DMAC-JAKE-001/locator-site/blob/main/RMB%20X%20DAMAC.png?raw=true" alt="RMB Logo">
-          <h2>No locator token provided</h2>
-        `;
-        document.body.appendChild(noTokenDiv);
-      } else {
-        // Show map iframe
-        const iframe = document.createElement("iframe");
-        iframe.id = "mapFrame";
-        iframe.src = "https://gps.creationfms.net/locator/index.html?t=" + token;
-        document.body.appendChild(iframe);
-
-        // Auto-refresh every 30 seconds
-        setInterval(() => {
-          document.getElementById("mapFrame").src = "https://gps.creationfms.net/locator/index.html?t=" + token;
-        }, 30000);
-
-        // Add customer routing inputs
-        const routeDiv = document.createElement("div");
-        routeDiv.id = "routeInputs";
-        routeDiv.innerHTML = `
-          <input type="number" id="custLat" placeholder="Your Latitude">
-          <input type="number" id="custLon" placeholder="Your Longitude">
-          <button onclick="calculateRoute()">Calculate Truck Distance</button>
-          <p id="routeOutput"></p>
-          <div id="customerMap"></div>
-        `;
-        document.body.appendChild(routeDiv);
-      }
-    } else {
-      document.getElementById("loginError").innerText = "Invalid username or password!";
-    }
-  }
-
-  function calculateRoute() {
-    const custLat = parseFloat(document.getElementById("custLat").value);
-    const custLon = parseFloat(document.getElementById("custLon").value);
-
-    if(!custLat || !custLon){
-      alert("Enter your location first!");
+    if(!token){
+      const noTokenDiv = document.createElement("div");
+      noTokenDiv.className = "no-token";
+      noTokenDiv.innerHTML = `
+        <img src="https://github.com/RMB-DMAC-JAKE-001/locator-site/blob/main/RMB%20X%20DAMAC.png?raw=true" alt="RMB Logo">
+        <h2>No locator token provided</h2>
+      `;
+      document.body.appendChild(noTokenDiv);
       return;
     }
 
-    // Example: Use a fixed truck position (you can later read from iframe if possible)
-    const truckLat = 25.276987;
-    const truckLon = 55.296249;
+    // Show map and controls
+    document.getElementById("mapSection").style.display = "block";
+    const iframe = document.getElementById("mapFrame");
+    iframe.src = "https://gps.creationfms.net/locator/index.html?t=" + token;
 
-    // Remove previous map if exists
-    const oldMap = document.getElementById("customerMap");
-    oldMap.innerHTML = "";
+    // Refresh iframe every 30 seconds
+    setInterval(() => {
+      iframe.src = "https://gps.creationfms.net/locator/index.html?t=" + token;
+    }, 30000);
 
-    const map = L.map('customerMap').setView([truckLat, truckLon], 10);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      attribution: '&copy; OpenStreetMap contributors'
-    }).addTo(map);
-
-    L.marker([truckLat, truckLon]).addTo(map).bindPopup("Truck").openPopup();
-    L.marker([custLat, custLon]).addTo(map).bindPopup("Your Location");
-
-    L.Routing.control({
-      waypoints: [
-        L.latLng(truckLat, truckLon),
-        L.latLng(custLat, custLon)
-      ],
-      routeWhileDragging: false
-    }).addTo(map);
-
-    const distance = map.distance([truckLat, truckLon], [custLat, custLon]) / 1000;
-    document.getElementById("routeOutput").innerText =
-      `Approx. straight-line distance: ${distance.toFixed(2)} km`;
+  } else {
+    document.getElementById("loginError").innerText = "Invalid username or password!";
   }
+}
+
+// Calculate distance from user location to truck (basic straight-line)
+function calculateDistance(){
+  const iframe = document.getElementById("mapFrame");
+  const userLat = parseFloat(document.getElementById("userLat").value);
+  const userLon = parseFloat(document.getElementById("userLon").value);
+
+  if(!userLat || !userLon){
+    alert("Enter your latitude and longitude!");
+    return;
+  }
+
+  // PostMessage to iframe is complex; for demo, just show distance to map center
+  const mapCenter = {lat: 25.276987, lon: 55.296249}; // default center
+  const distance = haversine(userLat, userLon, mapCenter.lat, mapCenter.lon).toFixed(2);
+  document.getElementById("distanceOutput").innerText = `Approx. distance to truck: ${distance} km`;
+}
+
+// Haversine formula
+function haversine(lat1, lon1, lat2, lon2){
+  const R = 6371; // km
+  const dLat = (lat2-lat1)*Math.PI/180;
+  const dLon = (lon2-lon1)*Math.PI/180;
+  const a = Math.sin(dLat/2)**2 + Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLon/2)**2;
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  return R * c;
+}
 </script>
 
 </body>
