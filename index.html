@@ -4,6 +4,8 @@
   <meta charset="UTF-8">
   <title>DAMAC Project</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine/dist/leaflet-routing-machine.css"/>
   <style>
     html, body {
       margin: 0;
@@ -17,7 +19,7 @@
     }
     iframe {
       width: 100%;
-      height: calc(100% - 50px);
+      height: calc(50vh);
       border: 0;
     }
     .login-container, .no-token {
@@ -67,6 +69,22 @@
       background: linear-gradient(to bottom, red, white, green);
       color: black;
     }
+    #routeInputs {
+      padding: 10px;
+      max-width: 400px;
+      margin: 10px auto;
+      text-align: center;
+    }
+    #routeInputs input, #routeInputs button {
+      width: 100%;
+      padding: 8px;
+      margin: 5px 0;
+      font-size: 16px;
+    }
+    #customerMap {
+      width: 100%;
+      height: 50vh;
+    }
   </style>
 </head>
 <body>
@@ -82,6 +100,8 @@
   <p id="loginError"></p>
 </div>
 
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+<script src="https://unpkg.com/leaflet-routing-machine/dist/leaflet-routing-machine.js"></script>
 <script>
   function login() {
     const user = document.getElementById("username").value;
@@ -117,11 +137,60 @@
         setInterval(() => {
           document.getElementById("mapFrame").src = "https://gps.creationfms.net/locator/index.html?t=" + token;
         }, 30000);
-      }
 
+        // Add customer routing inputs
+        const routeDiv = document.createElement("div");
+        routeDiv.id = "routeInputs";
+        routeDiv.innerHTML = `
+          <input type="number" id="custLat" placeholder="Your Latitude">
+          <input type="number" id="custLon" placeholder="Your Longitude">
+          <button onclick="calculateRoute()">Calculate Truck Distance</button>
+          <p id="routeOutput"></p>
+          <div id="customerMap"></div>
+        `;
+        document.body.appendChild(routeDiv);
+      }
     } else {
       document.getElementById("loginError").innerText = "Invalid username or password!";
     }
+  }
+
+  function calculateRoute() {
+    const custLat = parseFloat(document.getElementById("custLat").value);
+    const custLon = parseFloat(document.getElementById("custLon").value);
+
+    if(!custLat || !custLon){
+      alert("Enter your location first!");
+      return;
+    }
+
+    // Example: Use a fixed truck position (you can later read from iframe if possible)
+    const truckLat = 25.276987;
+    const truckLon = 55.296249;
+
+    // Remove previous map if exists
+    const oldMap = document.getElementById("customerMap");
+    oldMap.innerHTML = "";
+
+    const map = L.map('customerMap').setView([truckLat, truckLon], 10);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '&copy; OpenStreetMap contributors'
+    }).addTo(map);
+
+    L.marker([truckLat, truckLon]).addTo(map).bindPopup("Truck").openPopup();
+    L.marker([custLat, custLon]).addTo(map).bindPopup("Your Location");
+
+    L.Routing.control({
+      waypoints: [
+        L.latLng(truckLat, truckLon),
+        L.latLng(custLat, custLon)
+      ],
+      routeWhileDragging: false
+    }).addTo(map);
+
+    const distance = map.distance([truckLat, truckLon], [custLat, custLon]) / 1000;
+    document.getElementById("routeOutput").innerText =
+      `Approx. straight-line distance: ${distance.toFixed(2)} km`;
   }
 </script>
 
