@@ -7,7 +7,8 @@
 <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
 <style>
   body { font-family: Arial, sans-serif; margin: 0; padding: 0; }
-  #map { height: 60vh; width: 100%; }
+  #mapContainer { height: 60vh; width: 100%; }
+  iframe { width: 100%; height: 100%; border: 0; }
   .controls { padding: 10px; max-width: 400px; margin: 10px auto; }
   select, input, button { width: 100%; padding: 8px; margin: 5px 0; }
   #output { font-weight: bold; margin-top: 10px; }
@@ -17,117 +18,58 @@
 
 <h1 style="text-align:center;">DAMAC Truck Locator</h1>
 
-<div id="map"></div>
+<div id="mapContainer">
+  <!-- Embed the CreationFMS locator with your token -->
+  <iframe src="https://gps.creationfms.net/locator/index.html?t=d2cb4c3698b2dce9f7f1d85d9c3ff7be23CF883AF11190FC76D99E117B71101E10B464B2" allowfullscreen></iframe>
+</div>
 
 <div class="controls">
-  <select id="truckSelect"><option>Loading trucks...</option></select>
-  <input type="number" id="siteLat" placeholder="Site Latitude">
-  <input type="number" id="siteLon" placeholder="Site Longitude">
+  <label for="siteLat">Site Latitude</label>
+  <input type="number" id="siteLat" placeholder="Enter site latitude">
+  
+  <label for="siteLon">Site Longitude</label>
+  <input type="number" id="siteLon" placeholder="Enter site longitude">
+  
+  <label for="truckSelect">Select Truck</label>
+  <select id="truckSelect">
+    <option value="">Enter truck name manually (live list in iframe)</option>
+  </select>
+  
   <button onclick="calculateDistance()">Calculate Distance & ETA</button>
   <p id="output"></p>
 </div>
 
 <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
 <script>
-
-// ====== 1️⃣ Wialon token ======
-const token = "cbcd5c3cbd27728bb1d5ee73f9bd1b93F4976B96E053C10FE25F1E105C3DFD56918F0496";
-
-// ====== 2️⃣ Map setup ======
-const map = L.map('map').setView([25.276987, 55.296249], 10); // Default view
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-  attribution: '&copy; OpenStreetMap contributors'
-}).addTo(map);
-
-let truckMarkers = {};
-
-// ====== 3️⃣ Wialon API login to get SID ======
-async function getSID(token) {
-  const response = await fetch(`https://hst-api.wialon.com/wialon/ajax.html?svc=token/login&params={"token":"${token}"}`);
-  const data = await response.json();
-  if(data.eid) return data.eid;
-  throw new Error("Failed to get session ID");
-}
-
-// ====== 4️⃣ Fetch trucks ======
-async function fetchTrucks(sid) {
-  const url = `https://hst-api.wialon.com/wialon/ajax.html?svc=core/search_items&params={"spec":{"itemsType":"avl_unit","propName":"sys_name","propValueMask":"*","sortType":"sys_name"},"force":1,"flags":4718593,"from":0,"to":0}&sid=${sid}`;
-  const res = await fetch(url);
-  const data = await res.json();
-  return data.items || [];
-}
-
-// ====== 5️⃣ Load trucks into dropdown ======
-async function loadTrucks() {
-  try {
-    const sid = await getSID(token);
-    const trucks = await fetchTrucks(sid);
-    const select = document.getElementById("truckSelect");
-    select.innerHTML = "<option value=''>Select a truck</option>";
-    trucks.forEach(truck => {
-      const pos = truck.pos ? truck.pos : {x:0,y:0};
-      const speed = truck.sensors?.speed?.value || 40; // default speed km/h
-      const option = document.createElement("option");
-      option.value = JSON.stringify({id: truck.id, lat: pos.y, lon: pos.x, speed: speed, name: truck.nm});
-      option.text = truck.nm;
-      select.appendChild(option);
-      // Add marker to map
-      const marker = L.marker([pos.y, pos.x]).addTo(map).bindPopup(truck.nm);
-      truckMarkers[truck.id] = marker;
-    });
-    map.fitBounds(Object.values(truckMarkers).map(m => m.getLatLng()));
-    // Start live update
-    setInterval(updateTrucks, 30000); // every 30 sec
-  } catch(e){
-    alert("Error loading trucks: " + e.message);
-  }
-}
-
-// ====== 6️⃣ Update truck positions ======
-async function updateTrucks() {
-  try {
-    const sid = await getSID(token);
-    const trucks = await fetchTrucks(sid);
-    trucks.forEach(truck => {
-      if(truckMarkers[truck.id]){
-        const pos = truck.pos ? truck.pos : {x:0,y:0};
-        truckMarkers[truck.id].setLatLng([pos.y, pos.x]);
-        truckMarkers[truck.id].bindPopup(truck.nm);
-      }
-    });
-  } catch(e) {
-    console.error("Error updating trucks:", e);
-  }
-}
-
-// ====== 7️⃣ Haversine distance ======
+// ====== Haversine distance formula ======
 function haversine(lat1, lon1, lat2, lon2) {
-  const R = 6371;
-  const dLat = (lat2-lat1) * Math.PI/180;
-  const dLon = (lon2-lon1) * Math.PI/180;
-  const a = Math.sin(dLat/2)**2 + Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLon/2)**2;
+  const R = 6371; // km
+  const dLat = (lat2 - lat1) * Math.PI/180;
+  const dLon = (lon2 - lon1) * Math.PI/180;
+  const a = Math.sin(dLat/2)**2 + Math.cos(lat1*Math.PI/180) * Math.cos(lat2*Math.PI/180) * Math.sin(dLon/2)**2;
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
   return R * c;
 }
 
-// ====== 8️⃣ Calculate Distance & ETA ======
-function calculateDistance(){
-  const truckData = JSON.parse(document.getElementById("truckSelect").value || "{}");
+// ====== Calculate Distance & ETA ======
+function calculateDistance() {
   const siteLat = parseFloat(document.getElementById("siteLat").value);
   const siteLon = parseFloat(document.getElementById("siteLon").value);
-  if(!truckData.id || !siteLat || !siteLon){
-    alert("Select a truck and enter site coordinates");
+  const truckLat = parseFloat(prompt("Enter truck latitude from iframe map:"));
+  const truckLon = parseFloat(prompt("Enter truck longitude from iframe map:"));
+  const speed = parseFloat(prompt("Enter truck speed in km/h (default 40):") || 40);
+  
+  if(!siteLat || !siteLon || !truckLat || !truckLon){
+    alert("Please enter all coordinates");
     return;
   }
-  const distance = haversine(truckData.lat, truckData.lon, siteLat, siteLon).toFixed(2);
-  const eta = (distance / truckData.speed).toFixed(2);
-  document.getElementById("output").innerText = `Truck: ${truckData.name} | Distance: ${distance} km | ETA: ${eta} hours`;
+  
+  const distance = haversine(truckLat, truckLon, siteLat, siteLon).toFixed(2);
+  const eta = (distance / speed).toFixed(2);
+  
+  document.getElementById("output").innerText = `Distance: ${distance} km | ETA: ${eta} hours`;
 }
-
-// ====== 9️⃣ Load trucks on page load ======
-loadTrucks();
-
 </script>
+
 </body>
 </html>
-
