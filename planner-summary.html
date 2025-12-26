@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Planner Summary</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<style>
+  body {
+    font-family: Arial, sans-serif;
+    background: #f5f5f5;
+    margin: 0;
+  }
+
+  .card {
+    max-width: 500px;
+    margin: 40px auto;
+    background: white;
+    padding: 30px;
+    border-radius: 8px;
+    box-shadow: 0 0 10px rgba(0,0,0,0.1);
+  }
+
+  .logos {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 25px;
+  }
+
+  .logos img {
+    width: 120px;
+  }
+
+  .planner-badge {
+    font-weight: bold;
+    color: #007BFF;
+  }
+
+  .row {
+    margin-bottom: 15px;
+    font-size: 16px;
+  }
+
+  .label {
+    font-weight: bold;
+  }
+</style>
+</head>
+
+<body>
+
+<div class="card">
+  <div class="logos">
+    <!-- RMB logo -->
+    <img src="https://github.com/RMB-DMAC-JAKE-001/locator-site/blob/main/RMB%20X%20DAMAC.png?raw=true">
+    <div class="planner-badge">PLANNER</div>
+  </div>
+
+  <div class="row"><span class="label">Order Number:</span> <span id="order"></span></div>
+  <div class="row"><span class="label">Customer Name:</span> <span id="customer"></span></div>
+  <div class="row"><span class="label">Token:</span> <span id="token"></span></div>
+  <div class="row"><span class="label">Trucks:</span> <span id="trucks"></span></div>
+</div>
+
+<script>
+document.getElementById("order").innerText = localStorage.getItem("orderNumber") || "-";
+document.getElementById("customer").innerText = localStorage.getItem("customerName") || "-";
+document.getElementById("token").innerText = localStorage.getItem("token") || "-";
+document.getElementById("trucks").innerText = localStorage.getItem("trucks") || "-";
+</script>
+
+</body>
+</html>
