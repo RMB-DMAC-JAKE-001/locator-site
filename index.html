@@ -1,164 +1,252 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<title>DAMAC Project</title>
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
+<meta charset="UTF-8" />
+<title>DAMAC Truck Tracker</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<link
+  rel="stylesheet"
+  href="https://unpkg.com/leaflet/dist/leaflet.css"
+/>
 <style>
-  html, body { margin:0; height:100%; font-family:Arial, sans-serif; }
-  h1 { text-align:center; margin:10px 0; color:#000; }
-  #map { height:60%; width:100%; }
+  html, body {
+    height: 100%;
+    margin: 0;
+    font-family: Arial, sans-serif;
+  }
+  #map { height: 60vh; margin: 10px auto; max-width: 900px; }
   .login-container, .location-container {
-    display:flex; flex-direction:column; align-items:center; justify-content:center;
-    padding:10px;
+    max-width: 400px;
+    margin: 20px auto;
+    text-align: center;
   }
   input, button {
-    padding:10px; margin:5px; width:90%; max-width:300px;
-    font-size:16px; border-radius:5px; border:1px solid #ccc;
+    width: 100%;
+    padding: 10px;
+    margin: 6px 0;
+    font-size: 16px;
+    border-radius: 5px;
+    border: 1px solid #ccc;
   }
-  button { cursor:pointer; background-color:#007BFF; color:white; border:none; }
-  button:hover { background-color:#0056b3; }
-  #output { font-weight:bold; margin-top:5px; }
+  button {
+    background-color: #007BFF;
+    color: white;
+    border: none;
+    cursor: pointer;
+  }
+  button:hover {
+    background-color: #0056b3;
+  }
+  #output {
+    margin-top: 10px;
+    font-weight: bold;
+  }
+  #loginError {
+    color: red;
+  }
 </style>
 </head>
 <body>
 
-<h1>DAMAC Project</h1>
+<h1 style="text-align:center;">DAMAC Truck Tracker</h1>
 
 <div class="login-container" id="loginDiv">
-  <img src="https://github.com/RMB-DMAC-JAKE-001/locator-site/blob/main/RMB%20X%20DAMAC.png?raw=true" style="width:120px;">
-  <input type="text" id="username" placeholder="Username">
-  <input type="password" id="password" placeholder="Password">
+  <input type="text" id="username" placeholder="Username" />
+  <input type="password" id="password" placeholder="Password" />
   <button onclick="login()">Login</button>
   <p id="loginError"></p>
 </div>
 
 <div class="location-container" id="locationDiv" style="display:none;">
-  <input type="text" id="addressSearch" placeholder="Enter your address">
+  <input type="text" id="addressSearch" placeholder="Enter your address" />
   <button onclick="geocodeAddress()">Locate Address</button>
   <p>or use your current location:</p>
   <button onclick="useCurrentLocation()">Use My Location</button>
   <p id="output"></p>
 </div>
 
-<div id="map"></div>
+<div id="map" style="display:none;"></div>
 
 <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
 <script>
-let map, truckMarker, customerMarker, customerGeofence;
-let truckData = {lat:25.276987, lon:55.296249, name:"Truck"}; // placeholder
-const correctUser = "damac";
-const correctPass = "12345";
-const tokenParam = new URLSearchParams(window.location.search).get("t");
+  const correctUser = "damac";
+  const correctPass = "12345";
+  const token = new URLSearchParams(window.location.search).get("t");
 
-function login() {
-  const user = document.getElementById("username").value;
-  const pass = document.getElementById("password").value;
-  if(user===correctUser && pass===correctPass){
-    document.getElementById("loginDiv").style.display="none";
-    document.getElementById("locationDiv").style.display="flex";
+  let map;
+  let truckMarker;
+  let customerMarker;
+  let customerGeofence;
+  let truckData = { lat: 25.276987, lon: 55.296249, name: "Truck" }; // Default location
 
-    // Initialize map
-    map = L.map('map').setView([25.276987,55.296249], 10);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution:'&copy; OpenStreetMap contributors' }).addTo(map);
+  // ====== Login Function ======
+  function login() {
+    const user = document.getElementById("username").value.trim();
+    const pass = document.getElementById("password").value.trim();
 
-    // Load truck data
-    refreshTruck();
-    setInterval(refreshTruck, 45000); // update every 45s
-  } else {
-    document.getElementById("loginError").innerText="Invalid username or password!";
-  }
-}
+    if (user === correctUser && pass === correctPass) {
+      document.getElementById("loginDiv").style.display = "none";
 
-// ===== Wialon SID / Truck =====
-async function getSID(token){
-  const res = await fetch(`https://hst-api.wialon.com/wialon/ajax.html?svc=token/login&params={"token":"${token}"}`);
-  const data = await res.json();
-  if(data.eid) return data.eid;
-  throw new Error("Failed to get session ID");
-}
+      if (!token) {
+        alert("Token missing from URL. Please provide token as '?t=YOURTOKEN'");
+        return;
+      }
 
-async function fetchTruckPosition(sid){
-  const url = `https://hst-api.wialon.com/wialon/ajax.html?svc=core/search_items&params={"spec":{"itemsType":"avl_unit","propName":"sys_name","propValueMask":"*","sortType":"sys_name"},"force":1,"flags":1,"from":0,"to":0}&sid=${sid}`;
-  const res = await fetch(url);
-  const data = await res.json();
-  if(data.items && data.items.length>0){
-    const pos = data.items[0].pos || {x:25.276987,y:55.296249};
-    truckData = {lat:pos.y, lon:pos.x, name:data.items[0].nm};
-  }
-}
+      // Show location controls and map
+      document.getElementById("locationDiv").style.display = "block";
+      document.getElementById("map").style.display = "block";
 
-// ===== Haversine Distance =====
-function haversine(lat1, lon1, lat2, lon2){
-  const R=6371;
-  const dLat=(lat2-lat1)*Math.PI/180;
-  const dLon=(lon2-lon1)*Math.PI/180;
-  const a=Math.sin(dLat/2)**2 + Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLon/2)**2;
-  const c=2*Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-  return R*c;
-}
-
-// ===== Update Map =====
-function updateMap(userLat,userLon){
-  // Truck marker
-  if(!truckMarker) truckMarker=L.marker([truckData.lat,truckData.lon]).addTo(map).bindPopup(truckData.name);
-  else truckMarker.setLatLng([truckData.lat,truckData.lon]);
-
-  // Customer marker
-  if(!customerMarker) customerMarker=L.marker([userLat,userLon]).addTo(map).bindPopup("Customer Location").openPopup();
-  else customerMarker.setLatLng([userLat,userLon]);
-
-  // Customer geofence
-  if(customerGeofence) map.removeLayer(customerGeofence);
-  customerGeofence=L.circle([userLat,userLon], {color:'blue', fillColor:'#30f', fillOpacity:0.2, radius:500}).addTo(map);
-
-  // Fit map bounds
-  map.fitBounds([[truckData.lat,truckData.lon],[userLat,userLon]], {padding:[50,50]});
-
-  // Update info
-  const distance = haversine(userLat,userLon,truckData.lat,truckData.lon).toFixed(2);
-  const speed = 50; // km/h
-  const eta = (distance/speed).toFixed(2);
-  document.getElementById("output").innerText = `Distance to truck: ${distance} km | ETA: ${eta} hours`;
-}
-
-// ===== Refresh Truck =====
-async function refreshTruck(){
-  if(!tokenParam) return alert("Token missing");
-  try{
-    const sid = await getSID(tokenParam);
-    await fetchTruckPosition(sid);
-    // Update map if customer exists
-    if(customerMarker){
-      const lat = customerMarker.getLatLng().lat;
-      const lon = customerMarker.getLatLng().lng;
-      updateMap(lat, lon);
+      initMap();
+      refreshTruck(); // Initial fetch truck position
+      setInterval(refreshTruck, 45000); // Refresh every 45 seconds
+    } else {
+      document.getElementById("loginError").innerText = "Invalid username or password!";
     }
-  } catch(e){ console.error("Truck fetch error:", e); }
-}
+  }
 
-// ===== Use Browser Location =====
-function useCurrentLocation(){
-  if(navigator.geolocation){
-    navigator.geolocation.getCurrentPosition(pos=>{
-      updateMap(pos.coords.latitude, pos.coords.longitude);
-    }, ()=>{ alert("Could not get your location"); });
-  } else alert("Geolocation not supported");
-}
+  // ====== Initialize Leaflet Map ======
+  function initMap() {
+    map = L.map('map').setView([25.276987, 55.296249], 10);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '&copy; OpenStreetMap contributors',
+    }).addTo(map);
+  }
 
-// ===== Geocode Address =====
-function geocodeAddress(){
-  const address = document.getElementById("addressSearch").value;
-  if(!address) return alert("Enter an address");
-  fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}`)
-    .then(res=>res.json())
-    .then(data=>{
-      if(data.length>0){
-        updateMap(parseFloat(data[0].lat), parseFloat(data[0].lon));
-      } else alert("Address not found");
-    });
-}
+  // ====== Get Wialon Session ID ======
+  async function getSID(token) {
+    const url = `https://hst-api.wialon.com/wialon/ajax.html?svc=token/login&params={"token":"${token}"}`;
+    const response = await fetch(url);
+    const data = await response.json();
+    if (data.eid) return data.eid;
+    throw new Error("Failed to get session ID");
+  }
+
+  // ====== Fetch Truck Position ======
+  async function fetchTruckPosition(sid) {
+    const url = `https://hst-api.wialon.com/wialon/ajax.html?svc=core/search_items&params={"spec":{"itemsType":"avl_unit","propName":"sys_name","propValueMask":"*","sortType":"sys_name"},"force":1,"flags":1,"from":0,"to":0}&sid=${sid}`;
+    const response = await fetch(url);
+    const data = await response.json();
+    if (data.items && data.items.length > 0) {
+      // Wialon coordinates multiplied by 10^7, convert back to decimals
+      const pos = data.items[0].pos;
+      return {
+        lat: pos.y / 1e7,
+        lon: pos.x / 1e7,
+        name: data.items[0].nm,
+      };
+    }
+    throw new Error("Truck position not found");
+  }
+
+  // ====== Update Truck Marker ======
+  function updateTruckMarker(pos) {
+    truckData = pos;
+    if (!truckMarker) {
+      truckMarker = L.marker([pos.lat, pos.lon], { title: pos.name }).addTo(map).bindPopup(pos.name);
+    } else {
+      truckMarker.setLatLng([pos.lat, pos.lon]);
+    }
+    // Optional: Center map on truck if no customer set
+    if (!customerMarker) {
+      map.setView([pos.lat, pos.lon], 14);
+    }
+  }
+
+  // ====== Refresh Truck Position ======
+  async function refreshTruck() {
+    try {
+      const sid = await getSID(token);
+      const pos = await fetchTruckPosition(sid);
+      updateTruckMarker(pos);
+      // If customer location set, update geofence & info distance
+      if (customerMarker) {
+        updateMapWithCustomer(customerMarker.getLatLng());
+      }
+    } catch (error) {
+      console.error("Truck refresh error:", error);
+      alert("Error fetching truck data: " + error.message);
+    }
+  }
+
+  // ====== Calculate Distance (Haversine) ======
+  function haversine(lat1, lon1, lat2, lon2) {
+    const R = 6371;
+    const dLat = ((lat2 - lat1) * Math.PI) / 180;
+    const dLon = ((lon2 - lon1) * Math.PI) / 180;
+    const a =
+      Math.sin(dLat / 2) ** 2 +
+      Math.cos((lat1 * Math.PI) / 180) *
+        Math.cos((lat2 * Math.PI) / 180) *
+        Math.sin(dLon / 2) ** 2;
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c;
+  }
+
+  // ====== Update Map with Customer Location & Geofence ======
+  function updateMapWithCustomer(latlng) {
+    if (!customerMarker) {
+      customerMarker = L.marker(latlng, { title: "Customer Location" }).addTo(map).bindPopup("Customer Location").openPopup();
+    } else {
+      customerMarker.setLatLng(latlng);
+    }
+
+    // Draw geofence circle (500m radius)
+    if (customerGeofence) {
+      map.removeLayer(customerGeofence);
+    }
+    customerGeofence = L.circle(latlng, {
+      radius: 500,
+      color: "blue",
+      fillColor: "#30f",
+      fillOpacity: 0.2,
+    }).addTo(map);
+
+    // Adjust map view to show both truck and customer
+    const bounds = L.latLngBounds([ [truckData.lat, truckData.lon], latlng ]);
+    map.fitBounds(bounds, { padding: [50, 50] });
+
+    // Calculate distance and ETA
+    const distance = haversine(latlng.lat, latlng.lng, truckData.lat, truckData.lon).toFixed(2);
+    const speed = 50; // km/h average speed
+    const eta = (distance / speed).toFixed(2);
+
+    document.getElementById("output").innerText = `Distance to truck: ${distance} km | ETA: ${eta} hours`;
+  }
+
+  // ====== Geocode Address ======
+  function geocodeAddress() {
+    const address = document.getElementById("addressSearch").value.trim();
+    if (!address) {
+      alert("Please enter an address.");
+      return;
+    }
+    fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}`)
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.length > 0) {
+          const lat = parseFloat(data[0].lat);
+          const lon = parseFloat(data[0].lon);
+          updateMapWithCustomer(L.latLng(lat, lon));
+        } else {
+          alert("Address not found.");
+        }
+      })
+      .catch(() => alert("Failed to fetch address data."));
+  }
+
+  // ====== Use Browser Current Location ======
+  function useCurrentLocation() {
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          updateMapWithCustomer(L.latLng(pos.coords.latitude, pos.coords.longitude));
+        },
+        () => alert("Could not get your current location. Please enter manually.")
+      );
+    } else {
+      alert("Geolocation is not supported by your browser.");
+    }
+  }
 </script>
 
 </body>
