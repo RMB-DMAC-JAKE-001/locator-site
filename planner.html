@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Planner Portal</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<style>
+  body {
+    font-family: Arial, sans-serif;
+    margin: 0;
+    background: #f5f5f5;
+  }
+
+  .container {
+    max-width: 400px;
+    margin: 40px auto;
+    background: white;
+    padding: 25px;
+    border-radius: 8px;
+    box-shadow: 0 0 10px rgba(0,0,0,0.1);
+    text-align: center;
+  }
+
+  img {
+    width: 120px;
+    margin-bottom: 10px;
+  }
+
+  h2 {
+    margin-bottom: 20px;
+  }
+
+  input {
+    width: 100%;
+    padding: 12px;
+    margin-bottom: 12px;
+    font-size: 15px;
+    border-radius: 5px;
+    border: 1px solid #ccc;
+  }
+
+  button {
+    width: 100%;
+    padding: 12px;
+    font-size: 16px;
+    background: #007BFF;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+  }
+
+  button:hover {
+    background: #0056b3;
+  }
+</style>
+</head>
+
+<body>
+
+<div class="container">
+  <!-- RMB logo -->
+  <img src="https://github.com/RMB-DMAC-JAKE-001/locator-site/blob/main/RMB%20X%20DAMAC.png?raw=true">
+
+  <h2>Planner Portal</h2>
+
+  <input id="orderNumber" placeholder="Order Number">
+  <input id="customerName" placeholder="Customer Name">
+  <input id="token" placeholder="Token">
+  <input id="trucks" placeholder="Trucks (ex: Truck 1, Truck 2)">
+
+  <button onclick="confirmPlanner()">Confirm</button>
+</div>
+
+<script>
+function confirmPlanner(){
+  localStorage.setItem("orderNumber", document.getElementById("orderNumber").value);
+  localStorage.setItem("customerName", document.getElementById("customerName").value);
+  localStorage.setItem("token", document.getElementById("token").value);
+  localStorage.setItem("trucks", document.getElementById("trucks").value);
+
+  window.location.href = "planner-summary.html";
+}
+</script>
+
+</body>
+</html>
+
