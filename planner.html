@@ -5,31 +5,29 @@
 <title>Planner Portal - RMB</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <style>
-  /* Background and body styling */
-  body {
+  html, body {
     margin: 0;
+    height: 100%;
     font-family: Arial, sans-serif;
     background: url('https://github.com/RMB-DMAC-JAKE-001/locator-site/blob/main/planner%20rmb_page-0001.jpg?raw=true') no-repeat center center;
-    background-size: cover;
+    background-size: contain;
+    background-color: black;
     color: white;
-    font-weight: bold; /* all text bold */
+    font-weight: bold;
   }
 
-  /* Container for the form */
   .container {
-    background-color: rgba(0,0,0,0.6); /* dark transparent overlay for readability */
-    max-width: 400px;
-    margin: 50px auto;
-    padding: 30px;
+    background-color: rgba(0,0,0,0.6);
+    max-width: 500px;
+    margin: 30px auto;
+    padding: 20px 30px;
     border-radius: 10px;
     text-align: center;
   }
 
-  h1 {
-    margin-bottom: 20px;
-  }
+  h1 { margin-bottom: 20px; }
 
-  input, select, button {
+  input, button {
     width: 100%;
     padding: 12px;
     margin: 10px 0;
@@ -41,50 +39,141 @@
     font-weight: bold;
   }
 
-  input::placeholder {
-    color: #ffffffcc; /* lighter placeholder */
+  input::placeholder { color: #ffffffcc; }
+
+  button { background-color: #007BFF; border: none; cursor: pointer; }
+
+  button:hover { background-color: #0056b3; }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 20px;
+    color: white;
   }
 
-  button {
-    background-color: #007BFF;
+  th, td {
+    border: 1px solid white;
+    padding: 8px;
+    text-align: center;
+  }
+
+  th { background-color: rgba(0,0,0,0.7); }
+
+  td a {
+    color: #00f;
+    font-weight: bold;
+    text-decoration: none;
+  }
+
+  td button {
+    background-color: #28a745;
+    padding: 5px 10px;
+    font-size: 14px;
+    border-radius: 5px;
     border: none;
     cursor: pointer;
+    margin-top: 2px;
   }
 
-  button:hover {
-    background-color: #0056b3;
-  }
+  td button:hover { background-color: #1e7e34; }
+
 </style>
 </head>
 <body>
 
 <div class="container">
+  <img src="https://github.com/RMB-DMAC-JAKE-001/locator-site/blob/main/RMB%20X%20DAMAC.png?raw=true" style="width:120px; margin-bottom:10px;">
   <h1>Planner Portal</h1>
   <input type="text" id="orderNumber" placeholder="Order Number">
   <input type="text" id="customerName" placeholder="Customer Name">
   <input type="text" id="token" placeholder="Token">
   <input type="text" id="trucks" placeholder="Trucks Involved">
-  <button onclick="showConfirmation()">Confirm</button>
+  <button type="button" onclick="addOrder()">Add Order</button>
+
+  <div id="summary">
+    <h2 style="margin-top:30px;">Orders Summary</h2>
+    <table id="ordersTable">
+      <thead>
+        <tr>
+          <th>Order Number</th>
+          <th>Customer Name</th>
+          <th>Token</th>
+          <th>Trucks</th>
+          <th>Customer Link</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+  </div>
 </div>
 
 <script>
-function showConfirmation() {
-  const order = document.getElementById('orderNumber').value;
-  const customer = document.getElementById('customerName').value;
-  const token = document.getElementById('token').value;
-  const trucks = document.getElementById('trucks').value;
+let orders = [];
 
-  const html = `
-    <div style="text-align:center; margin-top:50px; color:white; font-weight:bold;">
-      <img src="https://github.com/RMB-DMAC-JAKE-001/locator-site/blob/main/RMB%20X%20DAMAC.png?raw=true" style="width:120px;"><br><br>
-      <h2>Planner Confirmation</h2>
-      <p><strong>Order Number:</strong> ${order}</p>
-      <p><strong>Customer Name:</strong> ${customer}</p>
-      <p><strong>Token:</strong> ${token}</p>
-      <p><strong>Trucks:</strong> ${trucks}</p>
-    </div>
-  `;
-  document.body.innerHTML = html;
+// Load saved orders from localStorage
+if (localStorage.getItem('plannerOrders')) {
+  orders = JSON.parse(localStorage.getItem('plannerOrders'));
+  renderTable();
+}
+
+// Add new order
+function addOrder() {
+  const order = document.getElementById('orderNumber').value.trim();
+  const customer = document.getElementById('customerName').value.trim();
+  const token = document.getElementById('token').value.trim();
+  const trucks = document.getElementById('trucks').value.trim();
+
+  if (!order || !customer || !token || !trucks) {
+    alert("Please fill in all fields.");
+    return;
+  }
+
+  const customerLink = `https://rmb-dmac-jake-001.github.io/locator-site/?t=${encodeURIComponent(token)}`;
+
+  const newOrder = { order, customer, token, trucks, customerLink };
+  orders.push(newOrder);
+
+  // Save to localStorage
+  localStorage.setItem('plannerOrders', JSON.stringify(orders));
+
+  renderTable();
+
+  // Clear inputs
+  document.getElementById('orderNumber').value = '';
+  document.getElementById('customerName').value = '';
+  document.getElementById('token').value = '';
+  document.getElementById('trucks').value = '';
+}
+
+// Render the summary table
+function renderTable() {
+  const tbody = document.querySelector("#ordersTable tbody");
+  tbody.innerHTML = '';
+
+  orders.forEach((o, index) => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${o.order}</td>
+      <td>${o.customer}</td>
+      <td>${o.token}</td>
+      <td>${o.trucks}</td>
+      <td>
+        <a href="${o.customerLink}" target="_blank">${o.customerLink}</a><br>
+        <button onclick="copyLink('${o.customerLink}')">Copy</button>
+      </td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+
+// Copy link to clipboard
+function copyLink(link) {
+  navigator.clipboard.writeText(link).then(() => {
+    alert("Customer link copied!");
+  }).catch(err => {
+    alert("Failed to copy: " + err);
+  });
 }
 </script>
 
